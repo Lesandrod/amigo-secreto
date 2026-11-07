@@ -359,21 +359,23 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
                         <tr key={p.id} className="hover:bg-[#f9fafb]">
                           <td className="p-2.5 font-medium text-neutral-900">
                             <div className="flex items-center gap-2">
+                              {p.photoUrl ? (
+                                <img
+                                  src={p.photoUrl}
+                                  alt={p.name}
+                                  className="w-7 h-7 rounded-full object-cover border border-neutral-300 flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-neutral-200 border border-neutral-300 flex items-center justify-center text-[10px] text-neutral-600 font-bold flex-shrink-0">
+                                  {p.name.charAt(0)}
+                                </div>
+                              )}
+                              <span className="truncate">{p.name}</span>
                               <label
-                                className="relative cursor-pointer group flex-shrink-0"
-                                title="Clic para subir/cambiar foto"
+                                className="cursor-pointer text-[9px] font-mono uppercase px-1.5 py-0.5 border border-neutral-300 hover:border-black bg-neutral-50 hover:bg-white text-neutral-600 transition-colors ml-1"
+                                title="Subir y recortar foto de perfil"
                               >
-                                {p.photoUrl ? (
-                                  <img
-                                    src={p.photoUrl}
-                                    alt={p.name}
-                                    className="w-7 h-7 rounded-full object-cover border border-neutral-300 group-hover:opacity-75 transition-opacity"
-                                  />
-                                ) : (
-                                  <div className="w-7 h-7 rounded-full bg-neutral-200 border border-neutral-300 flex items-center justify-center text-[10px] text-neutral-600 font-bold group-hover:bg-neutral-300 transition-colors">
-                                    {p.name.charAt(0)}
-                                  </div>
-                                )}
+                                {p.photoUrl ? 'Editar foto' : '+ Foto'}
                                 <input
                                   type="file"
                                   accept="image/*"
@@ -384,7 +386,6 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
                                   className="hidden"
                                 />
                               </label>
-                              <span className="truncate">{p.name}</span>
                             </div>
                           </td>
                           <td className="p-2.5 font-mono text-[10px] uppercase">

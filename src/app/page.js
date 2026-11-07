@@ -71,6 +71,7 @@ export default function Home() {
             participants={participants}
             onSelectParticipant={handleSelectParticipant}
             onOpenAdmin={() => setIsAdminOpen(true)}
+            onRefreshParticipants={fetchParticipants}
           />
         ) : (
           <Roulette

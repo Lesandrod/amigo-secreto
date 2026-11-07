@@ -1,6 +1,78 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
+import Cropper from 'react-easy-crop';
+
+// Helper to load image
+const createImage = (url) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', (error) => reject(error));
+    image.setAttribute('crossOrigin', 'anonymous');
+    image.src = url;
+  });
+
+function getRadianAngle(degreeValue) {
+  return (degreeValue * Math.PI) / 180;
+}
+
+// Canvas-based rotation and crop extraction
+async function getCroppedImg(imageSrc, pixelCrop, rotation = 0) {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) return null;
+
+  const rotRad = getRadianAngle(rotation);
+
+  // Calculate bounding box of rotated image
+  const { width: bBoxWidth, height: bBoxHeight } = {
+    width: Math.abs(Math.cos(rotRad) * image.width) + Math.abs(Math.sin(rotRad) * image.height),
+    height: Math.abs(Math.sin(rotRad) * image.width) + Math.abs(Math.cos(rotRad) * image.height)
+  };
+
+  // Set canvas size to match the bounding box
+  canvas.width = bBoxWidth;
+  canvas.height = bBoxHeight;
+
+  // Translate canvas center to image center and rotate
+  ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
+  ctx.rotate(rotRad);
+  ctx.translate(-image.width / 2, -image.height / 2);
+  ctx.drawImage(image, 0, 0);
+
+  // Now create output canvas for the cropped circular avatar
+  const outputCanvas = document.createElement('canvas');
+  const outputSize = 280; // Crisp avatar resolution
+  outputCanvas.width = outputSize;
+  outputCanvas.height = outputSize;
+  const outCtx = outputCanvas.getContext('2d');
+
+  if (!outCtx) return null;
+
+  // Circular clip for clean edges
+  outCtx.beginPath();
+  outCtx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2);
+  outCtx.closePath();
+  outCtx.clip();
+
+  // Draw the cropped portion from the rotated canvas
+  outCtx.drawImage(
+    canvas,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    outputSize,
+    outputSize
+  );
+
+  return outputCanvas.toDataURL('image/jpeg', 0.88);
+}
 
 export default function ImageCropperModal({
   isOpen,
@@ -9,209 +81,129 @@ export default function ImageCropperModal({
   onSave,
   onClose
 }) {
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, y: 0 });
-  const imgRef = useRef(null);
+  const [rotation, setRotation] = useState(0);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Reset state when a new image is loaded
-  useEffect(() => {
-    if (isOpen) {
-      setZoom(1);
-      setPan({ x: 0, y: 0 });
+  const onCropComplete = useCallback((croppedArea, pixels) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  const handleSave = async () => {
+    if (!croppedAreaPixels || !imageSrc) return;
+    setIsProcessing(true);
+    try {
+      const croppedBase64 = await getCroppedImg(imageSrc, croppedAreaPixels, rotation);
+      if (croppedBase64) {
+        onSave(croppedBase64);
+      }
+    } catch (err) {
+      console.error('Error cropping image:', err);
+    } finally {
+      setIsProcessing(false);
     }
-  }, [isOpen, imageSrc]);
+  };
 
   if (!isOpen || !imageSrc) return null;
 
-  // Mouse drag handlers
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: e.clientX - pan.x,
-      y: e.clientY - pan.y
-    };
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    setPan({
-      x: e.clientX - dragStartRef.current.x,
-      y: e.clientY - dragStartRef.current.y
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  // Touch drag handlers for mobile
-  const handleTouchStart = (e) => {
-    if (e.touches.length === 1) {
-      setIsDragging(true);
-      dragStartRef.current = {
-        x: e.touches[0].clientX - pan.x,
-        y: e.touches[0].clientY - pan.y
-      };
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    setPan({
-      x: e.touches[0].clientX - dragStartRef.current.x,
-      y: e.touches[0].clientY - dragStartRef.current.y
-    });
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
-  // Crop image using HTML5 Canvas
-  const handleConfirmCrop = () => {
-    const img = imgRef.current;
-    if (!img) return;
-
-    const CROP_SIZE = 260; // Output dimension (260x260px)
-    const VIEWPORT_SIZE = 240; // Diameter of preview circle
-    const canvas = document.createElement('canvas');
-    canvas.width = CROP_SIZE;
-    canvas.height = CROP_SIZE;
-    const ctx = canvas.getContext('2d');
-
-    // Calculate displayed dimensions of the image in the container
-    const rect = img.getBoundingClientRect();
-    const scaleFactor = CROP_SIZE / VIEWPORT_SIZE;
-
-    // Center coordinates
-    const centerX = CROP_SIZE / 2;
-    const centerY = CROP_SIZE / 2;
-
-    ctx.save();
-    // Circular clipping
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, CROP_SIZE / 2, 0, Math.PI * 2);
-    ctx.clip();
-
-    // Fill white background in case of edge
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-
-    // Apply translations & scaling
-    ctx.translate(centerX + pan.x * scaleFactor, centerY + pan.y * scaleFactor);
-    ctx.scale(zoom, zoom);
-
-    // Draw the image centered
-    const baseW = rect.width / zoom;
-    const baseH = rect.height / zoom;
-    ctx.drawImage(img, -baseW / 2, -baseH / 2, baseW, baseH);
-    ctx.restore();
-
-    const croppedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-    onSave(croppedBase64);
-  };
-
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-[380px] bg-white border border-[#090a0f] shadow-2xl p-5 space-y-4">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-[420px] bg-white border border-[#090a0f] shadow-2xl p-4 sm:p-5 space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#e5e7eb]">
+        <div className="flex items-center justify-between pb-2 border-b border-[#e5e7eb]">
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#090a0f]">
-              Ajustar foto
+              Recortar y centrar foto
             </h3>
-            <span className="text-[10px] font-mono text-neutral-500">
+            <span className="text-[11px] font-mono text-neutral-500">
               {participantName}
             </span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-neutral-400 hover:text-black font-mono text-sm px-1"
+            className="text-neutral-400 hover:text-black font-mono text-sm px-1.5 py-0.5"
           >
             [X]
           </button>
         </div>
 
-        {/* Cropping Viewport */}
-        <div
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          className="relative w-full h-64 bg-neutral-900 overflow-hidden flex items-center justify-center cursor-move select-none"
-        >
-          {/* Draggable image */}
-          <img
-            ref={imgRef}
-            src={imageSrc}
-            alt="Para recortar"
-            draggable={false}
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: 'center center',
-              transition: isDragging ? 'none' : 'transform 0.05s ease-out',
-              maxWidth: '90%',
-              maxHeight: '90%',
-              objectFit: 'contain'
-            }}
+        {/* Interactive Cropper Box */}
+        <div className="relative w-full h-72 bg-neutral-950 overflow-hidden select-none">
+          <Cropper
+            image={imageSrc}
+            crop={crop}
+            zoom={zoom}
+            rotation={rotation}
+            aspect={1}
+            cropShape="round"
+            showGrid={false}
+            onCropChange={setCrop}
+            onCropComplete={onCropComplete}
+            onZoomChange={setZoom}
           />
-
-          {/* Circular Mask Overlay */}
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <div
-              className="w-48 h-48 rounded-full border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
-              style={{ pointerEvents: 'none' }}
-            />
-          </div>
-
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 px-2 py-0.5 text-[9px] font-mono text-white/80 pointer-events-none uppercase tracking-wider">
-            Arrastra para centrar
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/70 px-2.5 py-0.5 text-[9px] font-mono text-white/90 pointer-events-none uppercase tracking-wider">
+            Arrastra o pellizca para centrar
           </div>
         </div>
 
-        {/* Zoom Slider */}
-        <div className="space-y-1.5 pt-1">
-          <div className="flex justify-between items-center text-[10px] font-mono text-neutral-500 uppercase">
-            <span>Zoom</span>
-            <span>{Math.round(zoom * 100)}%</span>
+        {/* Controls: Zoom & Rotate */}
+        <div className="space-y-3 pt-1">
+          {/* Zoom */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[10px] font-mono text-neutral-500 uppercase">
+              <span>Zoom</span>
+              <span>{Math.round(zoom * 100)}%</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-neutral-400">-</span>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.05}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full accent-[#090a0f] cursor-pointer h-1.5 bg-neutral-200 rounded-none"
+              />
+              <span className="text-xs font-mono text-neutral-400">+</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-neutral-400">-</span>
-            <input
-              type="range"
-              min="1"
-              max="3"
-              step="0.05"
-              value={zoom}
-              onChange={(e) => setZoom(parseFloat(e.target.value))}
-              className="w-full accent-[#090a0f] cursor-pointer h-1.5 bg-neutral-200 rounded-none"
-            />
-            <span className="text-xs font-mono text-neutral-400">+</span>
+
+          {/* Rotate Button */}
+          <div className="flex justify-between items-center pt-1 border-t border-[#f1f2f4]">
+            <span className="text-[10px] font-mono text-neutral-500 uppercase">
+              Orientación
+            </span>
+            <button
+              type="button"
+              onClick={() => setRotation((prev) => (prev + 90) % 360)}
+              className="text-[10px] font-mono uppercase px-2.5 py-1 border border-neutral-300 hover:border-black bg-neutral-50 text-neutral-700 transition-colors"
+            >
+              Rotar 90°
+            </button>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Actions */}
         <div className="flex gap-2 pt-2 border-t border-[#e5e7eb]">
           <button
             type="button"
             onClick={onClose}
-            className="sharp-outline-btn flex-1 h-10 text-[10px]"
+            disabled={isProcessing}
+            className="sharp-outline-btn flex-1 h-10 text-[11px]"
           >
             Cancelar
           </button>
           <button
             type="button"
-            onClick={handleConfirmCrop}
-            className="sharp-primary-btn flex-1 h-10 text-[10px]"
+            onClick={handleSave}
+            disabled={isProcessing}
+            className="sharp-primary-btn flex-1 h-10 text-[11px]"
           >
-            Guardar foto
+            {isProcessing ? 'Guardando...' : 'Aplicar recorte'}
           </button>
         </div>
       </div>

@@ -1,9 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
+import ImageCropperModal from './ImageCropperModal';
 
-export default function ParticipantSelector({ participants, onSelectParticipant, onOpenAdmin }) {
+export default function ParticipantSelector({
+  participants,
+  onSelectParticipant,
+  onOpenAdmin,
+  onRefreshParticipants
+}) {
   const [selectedId, setSelectedId] = useState('');
+  const [cropImageSrc, setCropImageSrc] = useState(null);
+  const [cropParticipant, setCropParticipant] = useState(null);
+  const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false);
 
   const selectedUser = participants.find((p) => p.id === selectedId);
   const remainingCount = participants.filter((p) => !p.revealed).length;
@@ -11,6 +20,40 @@ export default function ParticipantSelector({ participants, onSelectParticipant,
   const handleContinue = () => {
     if (selectedUser && !selectedUser.revealed) {
       onSelectParticipant(selectedUser);
+    }
+  };
+
+  const handleSelectFile = (participant, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setCropImageSrc(e.target.result);
+      setCropParticipant(participant);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveCroppedPhoto = async (croppedBase64) => {
+    if (!cropParticipant) return;
+    setIsUpdatingPhoto(true);
+    try {
+      const res = await fetch('/api/photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participantId: cropParticipant.id,
+          photoUrl: croppedBase64
+        })
+      });
+      if (res.ok && onRefreshParticipants) {
+        await onRefreshParticipants();
+      }
+    } catch (err) {
+      console.error('Error al guardar foto:', err);
+    } finally {
+      setIsUpdatingPhoto(false);
+      setCropImageSrc(null);
+      setCropParticipant(null);
     }
   };
 
@@ -32,7 +75,7 @@ export default function ParticipantSelector({ participants, onSelectParticipant,
         </div>
 
         {/* Sharp Grid of Names */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[320px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-1">
           {participants.map((p) => {
             const isSelected = p.id === selectedId;
             const isBlocked = p.revealed;
@@ -78,6 +121,47 @@ export default function ParticipantSelector({ participants, onSelectParticipant,
           })}
         </div>
 
+        {/* Selected User Photo / Details Banner */}
+        {selectedUser && (
+          <div className="p-3 bg-[#f9fafb] border border-[#e5e7eb] flex items-center justify-between gap-3 animate-in fade-in duration-150">
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              {selectedUser.photoUrl ? (
+                <img
+                  src={selectedUser.photoUrl}
+                  alt={selectedUser.name}
+                  className="w-10 h-10 rounded-full object-cover border border-neutral-300 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-neutral-200 text-neutral-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                  {selectedUser.name.charAt(0)}
+                </div>
+              )}
+              <div className="truncate">
+                <div className="text-xs font-bold uppercase text-[#090a0f] truncate">
+                  {selectedUser.name}
+                </div>
+                <div className="text-[10px] font-mono text-neutral-500">
+                  {selectedUser.photoUrl ? 'Foto lista' : 'Sin foto de perfil'}
+                </div>
+              </div>
+            </div>
+
+            <label className="cursor-pointer text-[10px] font-mono uppercase tracking-wider px-2.5 py-1.5 border border-neutral-300 hover:border-black bg-white text-[#090a0f] font-semibold flex-shrink-0 transition-colors shadow-sm">
+              {isUpdatingPhoto ? 'Guardando...' : selectedUser.photoUrl ? 'Recortar / Cambiar foto' : '+ Subir y recortar foto'}
+              <input
+                type="file"
+                accept="image/*"
+                disabled={isUpdatingPhoto}
+                onChange={(e) => {
+                  handleSelectFile(selectedUser, e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+                className="hidden"
+              />
+            </label>
+          </div>
+        )}
+
         {/* Action Button */}
         <button
           type="button"
@@ -101,6 +185,18 @@ export default function ParticipantSelector({ participants, onSelectParticipant,
           </button>
         </div>
       </div>
+
+      {/* Image Cropper Modal */}
+      <ImageCropperModal
+        isOpen={Boolean(cropImageSrc)}
+        imageSrc={cropImageSrc}
+        participantName={cropParticipant?.name || ''}
+        onSave={handleSaveCroppedPhoto}
+        onClose={() => {
+          setCropImageSrc(null);
+          setCropParticipant(null);
+        }}
+      />
     </div>
   );
 }
