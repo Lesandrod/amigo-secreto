@@ -302,6 +302,12 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
                       const targetId = pairings[p.id];
                       const targetFriend = participants.find((x) => x.id === targetId);
                       const currentPrefId = preferences[p.id] || '';
+                      // Friends already reserved by someone else's preference
+                      const otherReservedIds = new Set(
+                        Object.entries(preferences)
+                          .filter(([gId]) => gId !== p.id)
+                          .map(([, rId]) => rId)
+                      );
 
                       return (
                         <tr key={p.id} className="hover:bg-[#f9fafb]">
@@ -333,7 +339,7 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
                               >
                                 <option value="">(Al azar - Sin fijar)</option>
                                 {participants
-                                  .filter((other) => other.id !== p.id)
+                                  .filter((other) => other.id !== p.id && (!otherReservedIds.has(other.id) || currentPrefId === other.id))
                                   .map((other) => (
                                     <option key={other.id} value={other.id}>
                                       Fijar a: {other.name}
