@@ -59,21 +59,21 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
         rotation: () => (Math.random() - 0.5) * 35
       });
 
-      // Deal them out across the table one by one with tactile sound
+      // Deal them out across the table one by one with fast tactile sound
       gsap.to(cardElements, {
         opacity: 1,
         x: 0,
         y: 0,
         scale: 1,
         rotation: 0,
-        duration: 0.55,
+        duration: 0.35,
         stagger: {
-          each: 0.08,
+          each: 0.035,
           onStart: function () {
             sounds.playTick(1.05);
           }
         },
-        ease: 'back.out(1.4)',
+        ease: 'power2.out',
         onComplete: () => {
           setIsDealing(false);
         }
@@ -83,7 +83,7 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
     return () => ctx.revert();
   }, []);
 
-  // 2. Chocolatear / Barajar cartas con física GSAP
+  // 2. Chocolatear / Barajar cartas con física GSAP ultrarrápida y fluida
   const handleShuffle = () => {
     if (isShuffling || isDealing || isFlippingChosen || hasRevealedChosen) return;
     setSelectedCardId(null);
@@ -113,7 +113,7 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
       }
     });
 
-    // Step A: Gather all cards to the center into a single neat deck
+    // Step A: Gather all cards rapidly to the center into a single neat deck
     tl.to(cardElements, {
       x: (i, target) => {
         const cardCenterX = target.offsetLeft + target.offsetWidth / 2;
@@ -123,34 +123,34 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
         const cardCenterY = target.offsetTop + target.offsetHeight / 2;
         return centerY - cardCenterY;
       },
-      rotation: () => (Math.random() - 0.5) * 16,
-      scale: 0.94,
-      duration: 0.35,
+      rotation: () => (Math.random() - 0.5) * 12,
+      scale: 0.95,
+      duration: 0.2,
       ease: 'power2.inOut'
     });
 
-    // Step B: Riffle & interweave back and forth (entreverar)
+    // Step B: Rapid snappy riffle & interweave back and forth
     tl.to(cardElements, {
-      x: (i) => (i % 2 === 0 ? '-=32' : '+=32'),
-      rotation: (i) => (i % 2 === 0 ? -8 : 8),
-      duration: 0.14,
+      x: (i) => (i % 2 === 0 ? '-=24' : '+=24'),
+      rotation: (i) => (i % 2 === 0 ? -6 : 6),
+      duration: 0.09,
       ease: 'sine.inOut',
       yoyo: true,
-      repeat: 3
+      repeat: 1
     });
 
-    // Step C: Deal cards back out to their slots with a crisp stagger
+    // Step C: Deal cards back out to their slots smoothly
     tl.to(cardElements, {
       x: 0,
       y: 0,
       rotation: 0,
       scale: 1,
-      duration: 0.45,
+      duration: 0.28,
       stagger: {
-        each: 0.05,
+        each: 0.025,
         onStart: () => sounds.playTick(1.2)
       },
-      ease: 'back.out(1.5)'
+      ease: 'power2.out'
     });
   };
 
@@ -350,7 +350,7 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
                 <div
                   key={card.id}
                   onClick={() => handleCardClick(card.id)}
-                  className={`card-item relative h-32 sm:h-36 cursor-pointer select-none transition-all duration-200 ${
+                  className={`card-item relative h-32 sm:h-36 cursor-pointer select-none transition-opacity duration-150 will-change-transform ${
                     isSelected && !hasRevealedChosen
                       ? 'scale-105 sm:scale-110 -translate-y-2 z-30'
                       : !isSelected && selectedCardId && !hasRevealedChosen
