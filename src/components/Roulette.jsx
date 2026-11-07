@@ -333,7 +333,12 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
         )}
 
         {/* The Card Table: 3 columns on mobile! */}
-        <div ref={containerRef} className="perspective-container py-1 sm:py-2 relative min-h-[280px]">
+        <div
+          ref={containerRef}
+          className={`perspective-container py-1 sm:py-2 relative min-h-[280px] transition-all ${
+            selectedCardId && !hasRevealedChosen ? 'pb-24 sm:pb-0' : ''
+          }`}
+        >
           <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3.5">
             {cardDeck.map((card) => {
               const isSelected = card.id === selectedCardId;
@@ -453,13 +458,13 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
           </div>
         )}
 
-        {/* Confirmation Banner ("¿Seguro?") */}
+        {/* Confirmation Banner ("¿Seguro?") - Sticky at bottom on mobile, static on desktop */}
         {selectedCardId && !hasRevealedChosen && (
-          <div className="p-4 bg-neutral-50 border-2 border-[#090a0f] space-y-3 animate-in fade-in duration-200">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <div className="fixed bottom-0 left-0 right-0 sm:static z-50 p-4 sm:p-4 bg-white/95 sm:bg-neutral-50 backdrop-blur-md sm:backdrop-blur-none border-t-2 sm:border-2 border-[#090a0f] shadow-[0_-8px_25px_rgba(0,0,0,0.15)] sm:shadow-none space-y-3 animate-in slide-in-from-bottom duration-200">
+            <div className="max-w-[720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
               <div>
                 <div className="text-sm font-bold uppercase tracking-tight text-[#090a0f]">
-                  ¿Seguro que quieres esta carta?
+                  ¿Seguro con la Carta {cardDeck.find((c) => c.id === selectedCardId)?.label}?
                 </div>
                 <div className="text-xs text-neutral-500 font-mono">
                   Una mano dará vuelta a la carta y revelará a tu amigo secreto.
@@ -471,7 +476,7 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
                   type="button"
                   onClick={() => setSelectedCardId(null)}
                   disabled={isFlippingChosen || isHandVisible}
-                  className="sharp-outline-btn flex-1 sm:flex-initial px-4 h-10"
+                  className="sharp-outline-btn flex-1 sm:flex-initial px-4 h-11 sm:h-10 text-xs"
                 >
                   Elegir otra
                 </button>
@@ -479,7 +484,7 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
                   type="button"
                   onClick={handleConfirmPick}
                   disabled={isFlippingChosen || isHandVisible}
-                  className="sharp-primary-btn flex-1 sm:flex-initial px-5 h-10"
+                  className="sharp-primary-btn flex-1 sm:flex-initial px-5 h-11 sm:h-10 text-xs"
                 >
                   {isHandVisible ? 'Dando vuelta...' : 'Sí, dar vuelta'}
                 </button>
