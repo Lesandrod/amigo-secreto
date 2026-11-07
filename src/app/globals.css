@@ -1,26 +1,168 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f8fa;
+  --foreground: #090a0f;
+  --card-bg: #ffffff;
+  --border: #e2e4e9;
+  --border-strong: #090a0f;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-radius: 0px !important;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  margin: 0;
+  user-select: none;
+}
+
+h1, h2, h3, .font-heading {
+  font-family: var(--font-heading), var(--font-sans), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Sharp architectural card - Light Minimalist */
+.sharp-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e4e9;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+}
+
+.sharp-box {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+/* Sharp solid action button - Pure Black on Light */
+.sharp-primary-btn {
+  background-color: #090a0f;
+  color: #ffffff;
+  border: 1px solid #090a0f;
+  font-family: var(--font-heading), sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sharp-primary-btn:hover:not(:disabled) {
+  background-color: #27282d;
+  border-color: #27282d;
+}
+
+.sharp-primary-btn:active:not(:disabled) {
+  background-color: #404146;
+}
+
+.sharp-primary-btn:disabled {
+  background-color: #f1f2f4;
+  border-color: #e2e4e9;
+  color: #9aa0a6;
+  cursor: not-allowed;
+}
+
+.sharp-outline-btn {
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid #d1d5db;
+  font-family: var(--font-heading), sans-serif;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sharp-outline-btn:hover:not(:disabled) {
+  background-color: #f8fafc;
+  border-color: #090a0f;
+  color: #090a0f;
+}
+
+/* 3D Paper Ballot & Card Flip Styles */
+.perspective-container {
+  perspective: 1200px;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.65s cubic-bezier(0.19, 1, 0.22, 1);
+  transform-style: preserve-3d;
+}
+
+.flip-card-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  top: 0;
+  left: 0;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+/* Playing card face-down back */
+.card-back-pattern {
+  background-color: #090a0f;
+  color: #ffffff;
+  border: 2px solid #090a0f;
+  background-image: radial-gradient(#27282d 15%, transparent 16%), radial-gradient(#27282d 15%, transparent 16%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-back-pattern:hover {
+  border-color: #000000;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+}
+
+/* Shuffle animation for "chocolatear" */
+@keyframes shuffleCards {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  20% {
+    transform: translate(var(--shuff-x, -12px), -8px) rotate(-4deg);
+  }
+  50% {
+    transform: translate(var(--shuff-x2, 14px), 6px) rotate(4deg);
+  }
+  80% {
+    transform: translate(-4px, -2px) rotate(-1deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+.is-shuffling {
+  animation: shuffleCards 0.5s ease-in-out;
 }
