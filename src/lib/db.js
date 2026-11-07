@@ -55,15 +55,31 @@ function hasValidDerangement(remainingGivers, remainingReceivers) {
   return true;
 }
 
-// Select a purely random valid receiver at the moment of spin
-export function pickRandomFriendAtSpinTime(currentUserId, allParticipants, currentPairings) {
+// Select a purely random valid receiver at the moment of spin, respecting preferences if configured
+export function pickRandomFriendAtSpinTime(
+  currentUserId,
+  allParticipants,
+  currentPairings,
+  currentPreferences = {}
+) {
   const currentGiver = allParticipants.find((p) => p.id === currentUserId);
   if (!currentGiver) throw new Error('Participante no encontrado.');
 
   // Set of receivers already assigned to previous spinners
   const assignedReceiverIds = new Set(Object.values(currentPairings));
 
-  // Remaining givers (who haven't spun yet and aren't currentGiver)
+  // 1. Explicit preference for this giver (si el admin le configuró uno)
+  const preferredReceiverId = currentPreferences[currentUserId];
+  if (preferredReceiverId && preferredReceiverId !== currentUserId) {
+    const preferredCandidate = allParticipants.find(
+      (p) => p.id === preferredReceiverId && !assignedReceiverIds.has(p.id)
+    );
+    if (preferredCandidate) {
+      return preferredCandidate;
+    }
+  }
+
+  // 2. Remaining givers (who haven't spun yet and aren't currentGiver)
   const remainingGivers = allParticipants.filter(
     (p) => !p.revealed && p.id !== currentUserId
   );
@@ -77,6 +93,13 @@ export function pickRandomFriendAtSpinTime(currentUserId, allParticipants, curre
     throw new Error('No hay participantes disponibles para asignar.');
   }
 
+  // Receivers reserved for other people's future preferences
+  const reservedReceiverIds = new Set(
+    Object.entries(currentPreferences)
+      .filter(([gId]) => gId !== currentUserId)
+      .map(([, rId]) => rId)
+  );
+
   // Filter candidates that leave a valid configuration for the remaining friends
   const validCandidates = availableReceivers.filter((cand) => {
     const nextRemainingReceivers = allParticipants.filter(
@@ -85,14 +108,15 @@ export function pickRandomFriendAtSpinTime(currentUserId, allParticipants, curre
     return hasValidDerangement(remainingGivers, nextRemainingReceivers);
   });
 
-  if (validCandidates.length === 0) {
-    // Fallback if needed
-    return availableReceivers[Math.floor(Math.random() * availableReceivers.length)];
-  }
+  const pool = validCandidates.length > 0 ? validCandidates : availableReceivers;
+
+  // Try to avoid picking someone reserved for another person's preference
+  const unreservedPool = pool.filter((cand) => !reservedReceiverIds.has(cand.id));
+  const finalCandidates = unreservedPool.length > 0 ? unreservedPool : pool;
 
   // Purely random choice among valid candidates at this exact instant!
-  const randomIndex = Math.floor(Math.random() * validCandidates.length);
-  return validCandidates[randomIndex];
+  const randomIndex = Math.floor(Math.random() * finalCandidates.length);
+  return finalCandidates[randomIndex];
 }
 
 const DATA_DIR = path.join(process.cwd(), '.data');
@@ -219,8 +243,16 @@ export async function revealAndLockFriend(userId) {
       const pairSnap = await getDoc(doc(db, 'system', 'pairings'));
       currentPairings = pairSnap.exists() ? pairSnap.data() : {};
 
-      // Pick purely randomly on the spot!
-      const chosenFriend = pickRandomFriendAtSpinTime(userId, allParticipants, currentPairings);
+      const prefSnap = await getDoc(doc(db, 'system', 'preferences'));
+      const currentPreferences = prefSnap.exists() ? prefSnap.data() : {};
+
+      // Pick purely randomly on the spot (or respect preference if configured)!
+      const chosenFriend = pickRandomFriendAtSpinTime(
+        userId,
+        allParticipants,
+        currentPairings,
+        currentPreferences
+      );
 
       // Save pairing and lock user in Firebase Firestore
       const updatedPairings = {
@@ -255,8 +287,13 @@ export async function revealAndLockFriend(userId) {
   if (!user) throw new Error('Participante no encontrado.');
   if (user.revealed) throw new Error('Este participante ya realizó su sorteo y está bloqueado.');
 
-  // Pick randomly on the spot
-  const chosenFriend = pickRandomFriendAtSpinTime(userId, store.participants, store.pairings || {});
+  // Pick randomly on the spot (or respect preference)
+  const chosenFriend = pickRandomFriendAtSpinTime(
+    userId,
+    store.participants,
+    store.pairings || {},
+    store.preferences || {}
+  );
 
   store.pairings = store.pairings || {};
   store.pairings[userId] = chosenFriend.id;
@@ -275,7 +312,7 @@ export async function revealAndLockFriend(userId) {
   };
 }
 
-// 3. Admin: Get status with live pairings
+// 3. Admin: Get status with live pairings and preferences
 export async function getAdminData() {
   if (isFirebaseConfigured && db) {
     try {
@@ -293,9 +330,13 @@ export async function getAdminData() {
       const pairSnap = await getDoc(doc(db, 'system', 'pairings'));
       const pairings = pairSnap.exists() ? pairSnap.data() : {};
 
+      const prefSnap = await getDoc(doc(db, 'system', 'preferences'));
+      const preferences = prefSnap.exists() ? prefSnap.data() : {};
+
       return {
         participants: participants.sort((a, b) => parseInt(a.id || 0) - parseInt(b.id || 0)),
         pairings,
+        preferences,
         isFirebase: true
       };
     } catch (e) {
@@ -307,6 +348,7 @@ export async function getAdminData() {
   return {
     participants: store.participants,
     pairings: store.pairings || {},
+    preferences: store.preferences || {},
     isFirebase: false
   };
 }
@@ -417,4 +459,38 @@ export async function unpairParticipant(id) {
   }
   saveLocalStore(store);
   return { success: true };
+}
+
+// 8. Admin: Set or remove participant preference (Asignación fija secreta)
+export async function setParticipantPreference(giverId, receiverId) {
+  if (!giverId) throw new Error('ID de participante requerido.');
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const prefSnap = await getDoc(doc(db, 'system', 'preferences'));
+      const preferences = prefSnap.exists() ? prefSnap.data() : {};
+
+      const updated = { ...preferences };
+      if (!receiverId || receiverId === 'none' || receiverId === giverId) {
+        delete updated[giverId];
+      } else {
+        updated[giverId] = receiverId;
+      }
+
+      await setDoc(doc(db, 'system', 'preferences'), updated);
+      return { success: true, preferences: updated };
+    } catch (e) {
+      console.error('Firebase set preference error:', e);
+    }
+  }
+
+  const store = ensureLocalStore();
+  store.preferences = store.preferences || {};
+  if (!receiverId || receiverId === 'none' || receiverId === giverId) {
+    delete store.preferences[giverId];
+  } else {
+    store.preferences[giverId] = receiverId;
+  }
+  saveLocalStore(store);
+  return { success: true, preferences: store.preferences };
 }

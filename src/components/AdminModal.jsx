@@ -116,6 +116,31 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
     }
   };
 
+  const handleSetPreference = async (giverId, receiverId) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pin: adminPin,
+          action: 'setPreference',
+          giverId,
+          receiverId
+        })
+      });
+      if (res.ok) {
+        setNotice('Preferencia guardada.');
+        await loadAdminStatus(adminPin);
+      }
+    } catch {
+      setNotice('Error al fijar preferencia.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setNotice(''), 2500);
+    }
+  };
+
   const handleResetDraw = async () => {
     if (
       !window.confirm(
@@ -145,6 +170,7 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
 
   const participants = adminData?.participants || [];
   const pairings = adminData?.pairings || {};
+  const preferences = adminData?.preferences || {};
   const revealedCount = participants.filter((p) => p.revealed).length;
 
   return (
@@ -267,7 +293,7 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
                     <tr>
                       <th className="p-2.5 font-medium">Participante</th>
                       <th className="p-2.5 font-medium">Estado</th>
-                      <th className="p-2.5 font-medium">Le regala a</th>
+                      <th className="p-2.5 font-medium">Le regala a / Preferencia</th>
                       <th className="p-2.5 text-right"></th>
                     </tr>
                   </thead>
@@ -275,6 +301,7 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
                     {participants.map((p) => {
                       const targetId = pairings[p.id];
                       const targetFriend = participants.find((x) => x.id === targetId);
+                      const currentPrefId = preferences[p.id] || '';
 
                       return (
                         <tr key={p.id} className="hover:bg-[#f9fafb]">
@@ -285,16 +312,34 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
                             </span>
                           </td>
                           <td className="p-2.5 font-medium">
-                            {!p.revealed ? (
-                              <span className="text-neutral-400 font-mono text-[11px]">
-                                Pendiente de sacar papelito
-                              </span>
-                            ) : showSpoilers ? (
-                              <span className="text-[#090a0f] font-semibold">
-                                {targetFriend ? targetFriend.name : '—'}
-                              </span>
+                            {p.revealed ? (
+                              showSpoilers ? (
+                                <span className="text-[#090a0f] font-semibold">
+                                  {targetFriend ? targetFriend.name : '—'}
+                                </span>
+                              ) : (
+                                <span className="text-neutral-300 font-mono">••••••••</span>
+                              )
                             ) : (
-                              <span className="text-neutral-300 font-mono">••••••••</span>
+                              <select
+                                value={currentPrefId}
+                                onChange={(e) => handleSetPreference(p.id, e.target.value)}
+                                className={`text-[10px] font-mono h-7 px-1.5 border outline-none cursor-pointer max-w-[170px] truncate ${
+                                  currentPrefId
+                                    ? 'bg-amber-50 border-amber-400 text-amber-900 font-bold'
+                                    : 'bg-[#f9fafb] border-[#d1d5db] text-neutral-500 hover:border-black'
+                                }`}
+                                title="Predefinir a quién le regalará (truco de organizador)"
+                              >
+                                <option value="">(Al azar - Sin fijar)</option>
+                                {participants
+                                  .filter((other) => other.id !== p.id)
+                                  .map((other) => (
+                                    <option key={other.id} value={other.id}>
+                                      Fijar a: {other.name}
+                                    </option>
+                                  ))}
+                              </select>
                             )}
                           </td>
                           <td className="p-2.5 text-right whitespace-nowrap">

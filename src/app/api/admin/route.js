@@ -5,6 +5,7 @@ import {
   addParticipant,
   deleteParticipant,
   unpairParticipant,
+  setParticipantPreference,
   seedCleanDatabase
 } from '@/lib/db';
 
@@ -50,6 +51,13 @@ export async function POST(request) {
       if (!participantId) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
       await unpairParticipant(participantId);
       return NextResponse.json({ success: true });
+    }
+
+    if (action === 'setPreference') {
+      const { giverId, receiverId } = body;
+      if (!giverId) return NextResponse.json({ error: 'giverId requerido' }, { status: 400 });
+      const result = await setParticipantPreference(giverId, receiverId);
+      return NextResponse.json(result);
     }
 
     return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 });
