@@ -87,6 +87,35 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
     }
   };
 
+  const handleUnpairParticipant = async (id, name) => {
+    if (
+      !window.confirm(
+        `¿Deseas romper la pareja de ${name}? Su amigo asignado quedará libre de nuevo en la mesa y ${name} podrá volver a sacar su carta.`
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: adminPin, action: 'unpair', participantId: id })
+      });
+      if (res.ok) {
+        setNotice(`Pareja de ${name} rota. Ahora puede volver a sortear.`);
+        await loadAdminStatus(adminPin);
+        if (onRefreshParticipants) await onRefreshParticipants();
+      }
+    } catch {
+      setNotice('Error al romper pareja.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setNotice(''), 3000);
+    }
+  };
+
   const handleResetDraw = async () => {
     if (
       !window.confirm(
@@ -268,7 +297,17 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
                               <span className="text-neutral-300 font-mono">••••••••</span>
                             )}
                           </td>
-                          <td className="p-2.5 text-right">
+                          <td className="p-2.5 text-right whitespace-nowrap">
+                            {p.revealed && (
+                              <button
+                                type="button"
+                                onClick={() => handleUnpairParticipant(p.id, p.name)}
+                                title={`Romper pareja de ${p.name} para que pueda volver a sortear`}
+                                className="text-amber-700 hover:text-amber-900 font-mono text-[11px] font-semibold px-2 py-0.5 mr-1 hover:underline"
+                              >
+                                [Romper pareja]
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => handleDeleteParticipant(p.id)}

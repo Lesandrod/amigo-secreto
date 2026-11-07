@@ -383,3 +383,38 @@ export async function deleteParticipant(id) {
   saveLocalStore(store);
   return { success: true };
 }
+
+// 7. Admin: Unpair a specific participant (Romper la pareja y desbloquearlo)
+export async function unpairParticipant(id) {
+  if (!id) throw new Error('ID de participante requerido.');
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const pairSnap = await getDoc(doc(db, 'system', 'pairings'));
+      const pairings = pairSnap.exists() ? pairSnap.data() : {};
+
+      const updatedPairings = { ...pairings };
+      delete updatedPairings[id];
+
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'participants', id), { revealed: false });
+      batch.set(doc(db, 'system', 'pairings'), updatedPairings);
+      await batch.commit();
+
+      return { success: true };
+    } catch (e) {
+      console.error('Firebase unpair error:', e);
+    }
+  }
+
+  const store = ensureLocalStore();
+  const user = store.participants.find((p) => p.id === id);
+  if (user) {
+    user.revealed = false;
+  }
+  if (store.pairings) {
+    delete store.pairings[id];
+  }
+  saveLocalStore(store);
+  return { success: true };
+}

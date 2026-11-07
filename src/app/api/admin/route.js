@@ -4,6 +4,7 @@ import {
   resetDraw,
   addParticipant,
   deleteParticipant,
+  unpairParticipant,
   seedCleanDatabase
 } from '@/lib/db';
 
@@ -42,6 +43,12 @@ export async function POST(request) {
     if (action === 'delete') {
       if (!participantId) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
       await deleteParticipant(participantId);
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'unpair') {
+      if (!participantId) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
+      await unpairParticipant(participantId);
       return NextResponse.json({ success: true });
     }
 
