@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import ImageCropperModal from './ImageCropperModal';
 
 export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
   const [adminPin, setAdminPin] = useState('');
@@ -11,6 +12,8 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
   const [newName, setNewName] = useState('');
   const [showSpoilers, setShowSpoilers] = useState(true);
   const [notice, setNotice] = useState('');
+  const [cropImageSrc, setCropImageSrc] = useState(null);
+  const [cropParticipant, setCropParticipant] = useState(null);
 
   if (!isOpen) return null;
 
@@ -141,61 +144,47 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
     }
   };
 
-  const handleUploadPhoto = async (participantId, file) => {
+  const handleSelectFileForCrop = (participant, file) => {
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 220;
-        let width = img.width;
-        let height = img.height;
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height = Math.round((height * MAX_SIZE) / width);
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width = Math.round((width * MAX_SIZE) / height);
-            height = MAX_SIZE;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        const base64 = canvas.toDataURL('image/jpeg', 0.82);
-
-        setLoading(true);
-        try {
-          const res = await fetch('/api/admin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              pin: adminPin,
-              action: 'updatePhoto',
-              participantId,
-              photoUrl: base64
-            })
-          });
-          if (res.ok) {
-            setNotice('Foto guardada.');
-            await loadAdminStatus(adminPin);
-            if (onRefreshParticipants) await onRefreshParticipants();
-          }
-        } catch {
-          setNotice('Error al subir foto.');
-        } finally {
-          setLoading(false);
-          setTimeout(() => setNotice(''), 2500);
-        }
-      };
-      img.src = event.target.result;
+    reader.onload = (e) => {
+      setCropImageSrc(e.target.result);
+      setCropParticipant(participant);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleSaveCroppedPhoto = async (croppedBase64) => {
+    if (!cropParticipant) return;
+    const participantId = cropParticipant.id;
+    const participantName = cropParticipant.name;
+
+    setCropImageSrc(null);
+    setCropParticipant(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pin: adminPin,
+          action: 'updatePhoto',
+          participantId,
+          photoUrl: croppedBase64
+        })
+      });
+      if (res.ok) {
+        setNotice(`Foto de ${participantName} recortada y guardada.`);
+        await loadAdminStatus(adminPin);
+        if (onRefreshParticipants) await onRefreshParticipants();
+      }
+    } catch {
+      setNotice('Error al guardar foto recortada.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setNotice(''), 2500);
+    }
   };
 
   const handleResetDraw = async () => {
@@ -388,7 +377,10 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
                                 <input
                                   type="file"
                                   accept="image/*"
-                                  onChange={(e) => handleUploadPhoto(p.id, e.target.files?.[0])}
+                                  onChange={(e) => {
+                                    handleSelectFileForCrop(p, e.target.files?.[0]);
+                                    e.target.value = '';
+                                  }}
                                   className="hidden"
                                 />
                               </label>
@@ -475,6 +467,18 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
           </div>
         )}
       </div>
+
+      {/* Recortador interactivo de fotos */}
+      <ImageCropperModal
+        isOpen={Boolean(cropImageSrc)}
+        imageSrc={cropImageSrc}
+        participantName={cropParticipant?.name || ''}
+        onSave={handleSaveCroppedPhoto}
+        onClose={() => {
+          setCropImageSrc(null);
+          setCropParticipant(null);
+        }}
+      />
     </div>
   );
 }
