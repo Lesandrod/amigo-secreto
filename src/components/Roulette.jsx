@@ -350,14 +350,21 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
                 <div
                   key={card.id}
                   onClick={() => handleCardClick(card.id)}
-                  className={`card-item relative h-32 sm:h-36 cursor-pointer select-none transition-shadow ${
+                  className={`card-item relative h-32 sm:h-36 cursor-pointer select-none transition-all duration-200 ${
                     isSelected && !hasRevealedChosen
-                      ? 'scale-105 z-20'
+                      ? 'scale-105 sm:scale-110 -translate-y-2 z-30'
                       : !isSelected && selectedCardId && !hasRevealedChosen
-                      ? 'opacity-60'
+                      ? 'opacity-35 grayscale-[40%]'
                       : 'hover:-translate-y-1'
                   }`}
                 >
+                  {/* Glowing selection badge on top */}
+                  {isSelected && !hasRevealedChosen && (
+                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-400 text-black text-[8px] sm:text-[9px] font-mono font-extrabold uppercase tracking-widest px-2 py-0.5 shadow-lg z-40 whitespace-nowrap">
+                      SELECCIONADA
+                    </div>
+                  )}
+
                   <div
                     className={`flip-card-inner h-full ${
                       isCardFlipped ? 'is-flipped' : ''
@@ -367,28 +374,42 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
                     <div
                       className={`flip-card-front h-full flex flex-col justify-between p-2 sm:p-3 card-back-pattern ${
                         isSelected && !hasRevealedChosen
-                          ? 'ring-2 ring-blue-600 border-white'
+                          ? 'card-selected-glow'
                           : ''
                       }`}
                     >
                       <div className="flex justify-between items-center text-[9px] sm:text-[10px] font-mono text-neutral-400">
-                        <span>{card.label}</span>
-                        <span className="text-[7px] sm:text-[8px] uppercase tracking-widest text-neutral-400">
-                          SECRETO
+                        <span className={isSelected && !hasRevealedChosen ? 'text-amber-300 font-bold' : ''}>
+                          {card.label}
+                        </span>
+                        <span className={`text-[7px] sm:text-[8px] uppercase tracking-widest ${
+                          isSelected && !hasRevealedChosen ? 'text-amber-300 font-bold' : 'text-neutral-400'
+                        }`}>
+                          {isSelected && !hasRevealedChosen ? 'LISTA' : 'SECRETO'}
                         </span>
                       </div>
 
                       {/* Center card seal */}
                       <div className="flex flex-col items-center justify-center my-auto">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 border border-neutral-600 flex items-center justify-center">
-                          <span className="font-mono text-[10px] sm:text-xs font-bold text-neutral-300">
+                        <div className={`w-6 h-6 sm:w-8 sm:h-8 border flex items-center justify-center transition-colors ${
+                          isSelected && !hasRevealedChosen
+                            ? 'border-amber-400 bg-amber-400/20 shadow-[0_0_12px_rgba(251,191,36,0.8)]'
+                            : 'border-neutral-600'
+                        }`}>
+                          <span className={`font-mono text-[10px] sm:text-xs font-bold ${
+                            isSelected && !hasRevealedChosen ? 'text-amber-300' : 'text-neutral-300'
+                          }`}>
                             ?
                           </span>
                         </div>
                       </div>
 
-                      <div className="text-center text-[8px] sm:text-[9px] font-mono uppercase tracking-widest text-neutral-300 truncate">
-                        {isSelected && !hasRevealedChosen ? 'Elegida' : 'Elegir'}
+                      <div className={`text-center text-[8px] sm:text-[9px] font-mono uppercase tracking-widest truncate ${
+                        isSelected && !hasRevealedChosen
+                          ? 'text-amber-300 font-extrabold'
+                          : 'text-neutral-300'
+                      }`}>
+                        {isSelected && !hasRevealedChosen ? 'DAR VUELTA' : 'Elegir'}
                       </div>
                     </div>
 
