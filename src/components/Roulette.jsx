@@ -198,11 +198,21 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
         let otherIdx = 0;
         return prevDeck.map((c) => {
           if (c.id === selectedCardId) {
-            return { ...c, name: winner.name, isWinner: true };
+            return {
+              ...c,
+              name: winner.name,
+              photoUrl: winner.photoUrl,
+              isWinner: true
+            };
           } else {
-            const otherName = others[otherIdx]?.name || 'Amigo disponible';
+            const other = others[otherIdx] || {};
             otherIdx++;
-            return { ...c, name: otherName, isWinner: false };
+            return {
+              ...c,
+              name: other.name || 'Amigo disponible',
+              photoUrl: other.photoUrl,
+              isWinner: false
+            };
           }
         });
       });
@@ -432,8 +442,17 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
                         </span>
                       </div>
 
-                      <div className="my-auto text-center px-0.5 sm:px-1">
-                        <span className="text-[7px] sm:text-[9px] font-mono uppercase tracking-widest text-neutral-400 block mb-0.5 sm:mb-1 truncate">
+                      <div className="my-auto text-center px-0.5 sm:px-1 flex flex-col items-center justify-center">
+                        {card.photoUrl && (
+                          <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-black shadow-sm mb-0.5 sm:mb-1 flex-shrink-0">
+                            <img
+                              src={card.photoUrl}
+                              alt={card.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <span className="text-[7px] sm:text-[9px] font-mono uppercase tracking-widest text-neutral-400 block mb-0.5 truncate">
                           {card.isWinner ? 'Amigo Secreto' : 'Otra carta'}
                         </span>
                         <div
@@ -518,8 +537,17 @@ export default function Roulette({ currentUser, participants, onFinishAndReturn,
         {hasRevealedChosen && (
           <div className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-[#f8fafc] border border-[#e2e8f0]">
-              <div className="text-xs font-mono text-neutral-600 text-center sm:text-left">
-                Tu amigo secreto es <strong>{assignedFriend?.name}</strong>. Guarda el secreto.
+              <div className="flex items-center gap-3">
+                {assignedFriend?.photoUrl && (
+                  <img
+                    src={assignedFriend.photoUrl}
+                    alt={assignedFriend.name}
+                    className="w-12 h-12 rounded-full object-cover border-2 border-[#090a0f] shadow-md flex-shrink-0"
+                  />
+                )}
+                <div className="text-xs font-mono text-neutral-600 text-center sm:text-left">
+                  Tu amigo secreto es <strong>{assignedFriend?.name}</strong>. Guarda el secreto.
+                </div>
               </div>
               <button
                 type="button"

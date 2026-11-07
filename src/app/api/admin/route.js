@@ -6,6 +6,7 @@ import {
   deleteParticipant,
   unpairParticipant,
   setParticipantPreference,
+  updateParticipantPhoto,
   seedCleanDatabase
 } from '@/lib/db';
 
@@ -58,6 +59,13 @@ export async function POST(request) {
       if (!giverId) return NextResponse.json({ error: 'giverId requerido' }, { status: 400 });
       const result = await setParticipantPreference(giverId, receiverId);
       return NextResponse.json(result);
+    }
+
+    if (action === 'updatePhoto') {
+      const { photoUrl } = body;
+      if (!participantId) return NextResponse.json({ error: 'participantId requerido' }, { status: 400 });
+      await updateParticipantPhoto(participantId, photoUrl);
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 });

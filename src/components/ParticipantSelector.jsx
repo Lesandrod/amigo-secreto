@@ -51,9 +51,22 @@ export default function ParticipantSelector({ participants, onSelectParticipant,
                     : 'bg-white hover:bg-[#fafafa] border-[#e5e7eb] hover:border-[#a3a3a3] text-neutral-800'
                 }`}
               >
-                <span className="text-xs font-semibold uppercase tracking-wide truncate w-full">
-                  {p.name}
-                </span>
+                <div className="flex items-center gap-2 w-full mb-1">
+                  {p.photoUrl ? (
+                    <img
+                      src={p.photoUrl}
+                      alt={p.name}
+                      className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-neutral-300"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-neutral-200 text-neutral-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                      {p.name.charAt(0)}
+                    </div>
+                  )}
+                  <span className="text-xs font-semibold uppercase tracking-wide truncate">
+                    {p.name}
+                  </span>
+                </div>
 
                 <span className={`text-[10px] font-mono uppercase tracking-wider mt-1 ${
                   isBlocked ? 'text-neutral-400' : isSelected ? 'text-[#090a0f] font-semibold' : 'text-neutral-500'

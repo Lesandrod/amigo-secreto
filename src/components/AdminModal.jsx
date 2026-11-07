@@ -141,6 +141,63 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
     }
   };
 
+  const handleUploadPhoto = async (participantId, file) => {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 220;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const base64 = canvas.toDataURL('image/jpeg', 0.82);
+
+        setLoading(true);
+        try {
+          const res = await fetch('/api/admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pin: adminPin,
+              action: 'updatePhoto',
+              participantId,
+              photoUrl: base64
+            })
+          });
+          if (res.ok) {
+            setNotice('Foto guardada.');
+            await loadAdminStatus(adminPin);
+            if (onRefreshParticipants) await onRefreshParticipants();
+          }
+        } catch {
+          setNotice('Error al subir foto.');
+        } finally {
+          setLoading(false);
+          setTimeout(() => setNotice(''), 2500);
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleResetDraw = async () => {
     if (
       !window.confirm(
@@ -311,7 +368,33 @@ export default function AdminModal({ isOpen, onClose, onRefreshParticipants }) {
 
                       return (
                         <tr key={p.id} className="hover:bg-[#f9fafb]">
-                          <td className="p-2.5 font-medium text-neutral-900">{p.name}</td>
+                          <td className="p-2.5 font-medium text-neutral-900">
+                            <div className="flex items-center gap-2">
+                              <label
+                                className="relative cursor-pointer group flex-shrink-0"
+                                title="Clic para subir/cambiar foto"
+                              >
+                                {p.photoUrl ? (
+                                  <img
+                                    src={p.photoUrl}
+                                    alt={p.name}
+                                    className="w-7 h-7 rounded-full object-cover border border-neutral-300 group-hover:opacity-75 transition-opacity"
+                                  />
+                                ) : (
+                                  <div className="w-7 h-7 rounded-full bg-neutral-200 border border-neutral-300 flex items-center justify-center text-[10px] text-neutral-600 font-bold group-hover:bg-neutral-300 transition-colors">
+                                    {p.name.charAt(0)}
+                                  </div>
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleUploadPhoto(p.id, e.target.files?.[0])}
+                                  className="hidden"
+                                />
+                              </label>
+                              <span className="truncate">{p.name}</span>
+                            </div>
+                          </td>
                           <td className="p-2.5 font-mono text-[10px] uppercase">
                             <span className={p.revealed ? 'text-emerald-700 font-semibold' : 'text-neutral-400'}>
                               {p.revealed ? 'Listo' : 'Pendiente'}

@@ -203,7 +203,8 @@ export async function getPublicParticipants() {
         list.push({
           id: data.id,
           name: data.name,
-          revealed: Boolean(data.revealed)
+          revealed: Boolean(data.revealed),
+          photoUrl: data.photoUrl || null
         });
       });
       return list.sort((a, b) => parseInt(a.id || 0) - parseInt(b.id || 0));
@@ -216,7 +217,8 @@ export async function getPublicParticipants() {
   return store.participants.map((p) => ({
     id: p.id,
     name: p.name,
-    revealed: Boolean(p.revealed)
+    revealed: Boolean(p.revealed),
+    photoUrl: p.photoUrl || null
   }));
 }
 
@@ -273,8 +275,16 @@ export async function revealAndLockFriend(userId) {
 
       return {
         success: true,
-        assignedFriend: { id: chosenFriend.id, name: chosenFriend.name },
-        otherCandidates: otherAvailable.map((p) => ({ id: p.id, name: p.name }))
+        assignedFriend: {
+          id: chosenFriend.id,
+          name: chosenFriend.name,
+          photoUrl: chosenFriend.photoUrl || null
+        },
+        otherCandidates: otherAvailable.map((p) => ({
+          id: p.id,
+          name: p.name,
+          photoUrl: p.photoUrl || null
+        }))
       };
     } catch (e) {
       if (e.message.includes('ya realizó')) throw e;
@@ -307,8 +317,16 @@ export async function revealAndLockFriend(userId) {
 
   return {
     success: true,
-    assignedFriend: { id: chosenFriend.id, name: chosenFriend.name },
-    otherCandidates: otherAvailable.map((p) => ({ id: p.id, name: p.name }))
+    assignedFriend: {
+      id: chosenFriend.id,
+      name: chosenFriend.name,
+      photoUrl: chosenFriend.photoUrl || null
+    },
+    otherCandidates: otherAvailable.map((p) => ({
+      id: p.id,
+      name: p.name,
+      photoUrl: p.photoUrl || null
+    }))
   };
 }
 
@@ -323,7 +341,8 @@ export async function getAdminData() {
         participants.push({
           id: data.id,
           name: data.name,
-          revealed: Boolean(data.revealed)
+          revealed: Boolean(data.revealed),
+          photoUrl: data.photoUrl || null
         });
       });
 
@@ -346,7 +365,12 @@ export async function getAdminData() {
 
   const store = ensureLocalStore();
   return {
-    participants: store.participants,
+    participants: store.participants.map((p) => ({
+      id: p.id,
+      name: p.name,
+      revealed: Boolean(p.revealed),
+      photoUrl: p.photoUrl || null
+    })),
     pairings: store.pairings || {},
     preferences: store.preferences || {},
     isFirebase: false
@@ -493,4 +517,26 @@ export async function setParticipantPreference(giverId, receiverId) {
   }
   saveLocalStore(store);
   return { success: true, preferences: store.preferences };
+}
+
+// 9. Admin: Update participant photo (Foto de perfil / avatar)
+export async function updateParticipantPhoto(id, photoUrl) {
+  if (!id) throw new Error('ID requerido');
+
+  if (isFirebaseConfigured && db) {
+    try {
+      await updateDoc(doc(db, 'participants', id), { photoUrl: photoUrl || null });
+      return { success: true };
+    } catch (e) {
+      console.error('Firebase update photo error:', e);
+    }
+  }
+
+  const store = ensureLocalStore();
+  const user = store.participants.find((p) => p.id === id);
+  if (user) {
+    user.photoUrl = photoUrl || null;
+    saveLocalStore(store);
+  }
+  return { success: true };
 }
